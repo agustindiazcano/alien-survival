@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Marine Survival - Experimental Game | Agustin Diaz-Cano</title>
+    <meta name="description" content="An experimental WebGL mini-game built with Babylon.js. Easter egg in the portfolio of Agustin Diaz-Cano, Software Engineer.">
+    <meta name="author" content="Agustin Diaz-Cano">
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+    
+    <style>
+        html, body { overflow: hidden; width: 100%; height: 100%; margin: 0; padding: 0; background: #222; }
+        #renderCanvas { width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+        #damage-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;
+            background: radial-gradient(circle, transparent 50%, rgba(255, 0, 0, 0.9) 100%);
+            opacity: 0; transition: opacity 0.1s; z-index: 10;
+        }
+        
+        :root{ --phosphor: #ffb02e; }
+        #boot-flash{
+            position:fixed; inset:0; background:var(--phosphor); transform:scale(1,1); z-index:100;
+            animation:flashOff 700ms cubic-bezier(.6,0,.9,0) forwards;
+        }
+        @keyframes flashOff{
+            0%   { transform:scale(1, 1);        opacity:1; }
+            45%  { transform:scale(1, 0.006);    opacity:1; }
+            70%  { transform:scale(1, 0.006);    opacity:1; }
+            85%  { transform:scale(0.02, 0.006); opacity:1; }
+            100% { transform:scale(0.02, 0.006); opacity:0; }
+        }
+        #boot-stage{
+            position:fixed; inset:0; background:#000; z-index:90; display:flex; align-items:center; justify-content:center;
+            opacity:1; animation:stageFade 900ms ease 2.35s forwards; pointer-events:none;
+        }
+        @keyframes stageFade{ to{ opacity:0; visibility:hidden; } }
+        #letter-clip{
+            width:40vw; height:0; overflow:hidden; display:flex; align-items:flex-end; justify-content:center; opacity:0;
+            animation: clipIn 800ms 650ms cubic-bezier(.16,.85,.28,1) forwards, clipOut 400ms 1750ms cubic-bezier(.7,0,.84,0) forwards;
+        }
+        @keyframes clipIn{ 0% { height:0; opacity:1; } 100% { height:40vw; opacity:1; } }
+        @keyframes clipOut{ 0% { height:40vw; opacity:1; } 100% { height:0; opacity:0; } }
+        #letter-clip span{
+            font-size:40vw; line-height:0.78; font-weight:700; color:var(--phosphor);
+            text-shadow: 0 0 30px rgba(255,176,46,.85), 0 0 90px rgba(255,176,46,.35);
+            letter-spacing:-0.02em; font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <!-- BOOT SEQUENCE -->
+    <div id="boot-flash"></div>
+    <div id="boot-stage">
+        <div id="letter-clip"><span>A</span></div>
+    </div>
+    
+    <div id="damage-overlay"></div>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas, true);
+        const damageDiv = document.getElementById("damage-overlay");
+        let damageAlpha = 0;
+
+        const cursorBlueArrow = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><polygon points="0,0 0,24 16,12" fill="cyan" stroke="white" stroke-width="2"/></svg>'), auto`;
+
+        const createScene = function () {
+            const scene = new BABYLON.Scene(engine);
+            
+            // --- 0. VARIABLES ---
+            const inputMap = {}; 
+            const enemies = []; 
+            const projectiles = [];
+            const drops = [];
+            const drones = [];
+            
+            let isPaused = false;
+            let gold = 0;
+            let time = 0; 
+            
+            let playerHealth = 100; let playerMaxHealth = 100;
+            let playerArmor = 0; let playerXP = 0; let playerMaxXP = 100; let playerLevel = 1;
+            
+            let rifleDamage = 35; let fireRate = 100;
+            let droneHealLevel = 0; let droneAttackLevel = 0;
+            let lastFireTime = 0; let isMouseDown = false; 
+
+            let currentWave = 1; const maxWaves = 100;
+            let enemiesKilledInWave = 0; let enemiesRequiredForWave = 20;
+            let baseSpawnRate = 2500; let currentSpawnRate = baseSpawnRate; let lastSpawnTime = 0;
+            let baseEnemyDamage = 3; let currentEnemyDamage = baseEnemyDamage;
+
+            // --- 1. AMBIENTE ---
+            scene.clearColor = new BABYLON.Color3(0.1, 0.1, 0.1); 
+            scene.fogMode = BABYLON.Scene.FOGMODE_EXP;
+            scene.fogDensity = 0.01;
+            scene.fogColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+
+            const hemiLight = new BABYLON.HemisphericLight("hemi", new BABYLON.Vector3(0, 1, 0), scene);
+            hemiLight.intensity = 0.1; 
+            hemiLight.diffuse = new BABYLON.Color3(1, 1, 1);
+            hemiLight.groundColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+
+            const dirLight = new BABYLON.DirectionalLight("dir01", new BABYLON.Vector3(-1, -2, -1), scene);
+            dirLight.position = new BABYLON.Vector3(20, 40, 20);
+            dirLight.intensity = 0.2;
+            
+            const shadowGenerator = new BABYLON.ShadowGenerator(2048, dirLight);
+            shadowGenerator.useBlurExponentialShadowMap = true;
+
+            // Texturas
+            const mainTexture = new BABYLON.Texture("./textures/alienterrain.png", scene);
+            mainTexture.uScale = 10; mainTexture.vScale = 10;
+            const marineTexture = new BABYLON.Texture("./textures/marinetexture.png", scene);
+
+            // Suelo
+            const ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 200, height: 200}, scene);
+            const groundMat = new BABYLON.StandardMaterial("groundMat", scene);
+            groundMat.diffuseTexture = mainTexture;
+            groundMat.specularColor = new BABYLON.Color3(0, 0, 0); 
+            groundMat.maxSimultaneousLights = 10; 
+            ground.material = groundMat;
+            ground.receiveShadows = true;
+
+            const gl = new BABYLON.GlowLayer("glow", scene);
+            gl.intensity = 0.5;
+
+            // --- 2. JUGADOR ---
+            const player = BABYLON.MeshBuilder.CreateBox("player", {height: 1.8, width: 1, depth: 1}, scene);
+            player.position.y = 0.9;
+            const playerMat = new BABYLON.StandardMaterial("playerMat", scene);
+            playerMat.diffuseColor = new BABYLON.Color3(1, 1, 1); 
+            playerMat.emissiveColor = new BABYLON.Color3(0.1, 0.1, 0.1); 
+            playerMat.maxSimultaneousLights = 10; 
+            player.material = playerMat;
+            shadowGenerator.addShadowCaster(player);
+
+            const playerHead = BABYLON.MeshBuilder.CreateSphere("pHead", {diameter: 0.7}, scene);
+            playerHead.position.y = 1.0; playerHead.parent = player;
+            const headMat = new BABYLON.StandardMaterial("headMat", scene);
+            headMat.diffuseColor = new BABYLON.Color3(0, 0, 0); 
+            playerHead.material = headMat;
+
+            const gunMesh = BABYLON.MeshBuilder.CreateBox("gun", {width: 0.15, height: 0.15, depth: 0.8}, scene);
+            gunMesh.parent = player;
+            gunMesh.position = new BABYLON.Vector3(0.5, 0.2, 0.5);
+            const gunMat = new BABYLON.StandardMaterial("gunMat", scene);
+            gunMat.diffuseColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+            gunMesh.material = gunMat;
+
+            const flashlight = new BABYLON.SpotLight("flashlight", new BABYLON.Vector3(0, 3, 0), new BABYLON.Vector3(0, -0.5, 1.5), Math.PI / 2.2, 15, scene);
+            flashlight.parent = player; flashlight.diffuse = new BABYLON.Color3(1, 1, 1); flashlight.intensity = 8.0; flashlight.range = 90;
+            const haloLight = new BABYLON.PointLight("halo", new BABYLON.Vector3(0, 2, 0), scene);
+            haloLight.parent = player; haloLight.diffuse = new BABYLON.Color3(0.5, 0.5, 1); haloLight.intensity = 2; haloLight.range = 10;      
+
+            // --- DRONES ---
+            const createDrone = (offset) => {
+                const drone = BABYLON.MeshBuilder.CreateSphere("drone", {diameter: 0.5}, scene);
+                const dMat = new BABYLON.StandardMaterial("dMat", scene);
+                dMat.diffuseColor = new BABYLON.Color3(0.1, 0.1, 0.1); dMat.emissiveColor = new BABYLON.Color3(0, 0.5, 1);
+                drone.material = dMat;
+                const eye = BABYLON.MeshBuilder.CreateSphere("eye", {diameter: 0.2}, scene);
+                eye.parent = drone; eye.position.z = 0.2; eye.position.y = 0.1;
+                const eMat = new BABYLON.StandardMaterial("eMat", scene);
+                eMat.emissiveColor = new BABYLON.Color3(1, 0, 0); eye.material = eMat; 
+                const droneLight = new BABYLON.SpotLight("dL", new BABYLON.Vector3(0, 0, 0), new BABYLON.Vector3(0, -1, 0), Math.PI / 1.5, 5, scene);
+                droneLight.parent = drone; droneLight.diffuse = new BABYLON.Color3(0, 1, 1); droneLight.intensity = 3.0; droneLight.range = 20;
+                drone.metadata = { offset: offset, lastAction: 0, angle: Math.random() * Math.PI * 2 };
+                shadowGenerator.addShadowCaster(drone);
+                drones.push(drone);
+            };
+            createDrone(new BABYLON.Vector3(1.5, 1.5, -1.5));
+
+            // --- CÁMARA ---
+            const camera = new BABYLON.ArcRotateCamera("Camera", -Math.PI / 2, Math.PI / 3.2, 30, player.position, scene);
+            camera.inputs.clear();
+
+            // --- UI ---
+            const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
+            const hudPanel = new BABYLON.GUI.StackPanel();
+            hudPanel.width = "250px"; hudPanel.horizontalAlignment = 0; hudPanel.verticalAlignment = 0; hudPanel.top = "20px"; hudPanel.left = "20px";
+            advancedTexture.addControl(hudPanel);
+
+            const createBar = (label, color) => {
+                const txt = new BABYLON.GUI.TextBlock(); txt.text = label; txt.color = "white"; txt.fontSize = 14; txt.height = "20px"; txt.textHorizontalAlignment = 0;
+                hudPanel.addControl(txt);
+                const cont = new BABYLON.GUI.Rectangle(); cont.width = "200px"; cont.height = "10px"; cont.color = "white"; cont.background = "black"; cont.horizontalAlignment = 0;
+                hudPanel.addControl(cont);
+                const bar = new BABYLON.GUI.Rectangle(); bar.width = "0px"; bar.height = "10px"; bar.color = "transparent"; bar.background = color; bar.horizontalAlignment = 0;
+                cont.addControl(bar);
+                return { text: txt, bar: bar };
+            }
+            const hpUI = createBar("SALUD", "green");
+            const armorUI = createBar("ARMADURA: 0%", "gray");
+            const xpUI = createBar("XP (Nivel 1)", "cyan");
+            const goldText = new BABYLON.GUI.TextBlock();
+            goldText.text = "ORO: 0"; goldText.color = "#FFD700"; goldText.fontSize = 20; goldText.height = "30px"; goldText.textHorizontalAlignment = 0;
+            hudPanel.addControl(goldText);
+            const weaponText = new BABYLON.GUI.TextBlock();
+            weaponText.text = "RIFLE (1)"; weaponText.color = "white"; weaponText.fontSize = 18; weaponText.height = "30px"; weaponText.textHorizontalAlignment = 0;
+            hudPanel.addControl(weaponText);
+
+            const wavePanel = new BABYLON.GUI.StackPanel();
+            wavePanel.verticalAlignment = 0; wavePanel.horizontalAlignment = 2; wavePanel.top = "10px";
+            advancedTexture.addControl(wavePanel);
+            const waveTitle = new BABYLON.GUI.TextBlock();
+            waveTitle.text = "WAVE 1"; waveTitle.color = "orange"; waveTitle.fontSize = 30; waveTitle.fontWeight = "bold"; waveTitle.height = "40px";
+            wavePanel.addControl(waveTitle);
+            const waveProgressContainer = new BABYLON.GUI.Rectangle();
+            waveProgressContainer.width = "400px"; waveProgressContainer.height = "20px"; waveProgressContainer.background = "black"; waveProgressContainer.color = "white";
+            wavePanel.addControl(waveProgressContainer);
+            const waveProgressBar = new BABYLON.GUI.Rectangle();
+            waveProgressBar.width = "0px"; waveProgressBar.height = "20px"; waveProgressBar.background = "#00BFFF"; waveProgressBar.horizontalAlignment = 0;
+            waveProgressContainer.addControl(waveProgressBar);
+            const waveProgressText = new BABYLON.GUI.TextBlock();
+            waveProgressText.text = "0%"; waveProgressText.color = "white"; waveProgressText.fontSize = 14;
+            waveProgressContainer.addControl(waveProgressText);
+
+            const radarContainer = new BABYLON.GUI.Ellipse();
+            radarContainer.width = "150px"; radarContainer.height = "150px";
+            radarContainer.color = "green"; radarContainer.thickness = 2;
+            radarContainer.background = "black"; radarContainer.alpha = 0.7;
+            radarContainer.horizontalAlignment = 0; radarContainer.verticalAlignment = 1;
+            radarContainer.left = "20px"; radarContainer.top = "-20px";
+            advancedTexture.addControl(radarContainer);
+            const radarCenter = new BABYLON.GUI.Ellipse();
+            radarCenter.width = "4px"; radarCenter.height = "4px"; radarCenter.background = "white";
+            radarContainer.addControl(radarCenter);
+            let radarDots = [];
+
+            const updateHUD = () => {
+                const hpP = Math.max(0, playerHealth / playerMaxHealth);
+                hpUI.bar.width = (hpP * 200) + "px"; hpUI.bar.background = hpP < 0.3 ? "red" : "green";
+                const xpP = playerXP / playerMaxXP;
+                xpUI.bar.width = (xpP * 200) + "px"; xpUI.text.text = "XP (Nivel " + playerLevel + ")";
+                armorUI.bar.width = (Math.min(1, playerArmor/50) * 200) + "px"; armorUI.text.text = "ARMADURA: " + playerArmor + "%";
+                goldText.text = "ORO: " + gold;
+                const wavePct = Math.min(1, enemiesKilledInWave / enemiesRequiredForWave);
+                waveProgressBar.width = (wavePct * 400) + "px";
+                waveProgressText.text = Math.floor(wavePct * 100) + "% (Matar " + (enemiesRequiredForWave - enemiesKilledInWave) + ")";
+                let wName = "RIFLE"; if(currentWeapon===2) wName="LANZALLAMAS"; if(currentWeapon===3) wName="PLASMA"; if(currentWeapon===4) wName="LASER RIFLE";
+                weaponText.text = wName + " (" + currentWeapon + ")";
+                if(isReloading && currentWeapon === 1) weaponText.text = "RECARGANDO...";
+            };
+
+            // --- TIENDA ---
+            const shopContainer = new BABYLON.GUI.Rectangle();
+            shopContainer.width = "700px"; shopContainer.height = "600px"; shopContainer.background = "#0f0f15"; shopContainer.color = "cyan"; shopContainer.thickness = 2; shopContainer.isVisible = false;
+            advancedTexture.addControl(shopContainer);
+            const shopHeader = new BABYLON.GUI.TextBlock(); shopHeader.text = "TIENDA - PAUSA"; shopHeader.color = "cyan"; shopHeader.fontSize = 24; shopHeader.top = "-260px"; shopContainer.addControl(shopHeader);
+            const statsText = new BABYLON.GUI.TextBlock(); statsText.text = ""; statsText.color = "white"; statsText.fontSize = 16; statsText.top = "-220px"; shopContainer.addControl(statsText);
+
+            const btnNextWave = BABYLON.GUI.Button.CreateSimpleButton("btnNext", "COMENZAR SIGUIENTE OLEADA");
+            btnNextWave.width = "400px"; btnNextWave.height = "60px"; btnNextWave.color = "white"; btnNextWave.background = "green"; btnNextWave.top = "250px";
+            btnNextWave.onPointerUpObservable.add(() => { isPaused = false; shopContainer.isVisible = false; canvas.style.cursor = "crosshair"; updateHUD(); });
+            shopContainer.addControl(btnNextWave);
+
+            const createShopBtn = (text, price, action, top, left, checkBuy) => {
+                const btn = BABYLON.GUI.Button.CreateSimpleButton("btn", text + "\nCost: " + price);
+                btn.width = "200px"; btn.height = "60px"; btn.color = "white"; btn.background = "#222"; btn.top = top; btn.left = left; btn.fontSize = 14;
+                btn.onPointerUpObservable.add(() => { if(gold >= price) { if(checkBuy && checkBuy()) return; gold -= price; action(); updateShopUI(); updateHUD(); } });
+                shopContainer.addControl(btn);
+                return btn;
+            };
+
+            createShopBtn("Daño Rifle (+5)", 100, () => { rifleDamage += 5; }, "-150px", "-220px");
+            createShopBtn("Cadencia Rifle", 150, () => { machineGunRate = Math.max(20, machineGunRate - 10); }, "-150px", "0px");
+            createShopBtn("Botiquin (+50HP)", 50, () => { playerHealth = Math.min(playerMaxHealth, playerHealth + 50); }, "-150px", "220px");
+            createShopBtn("Armadura (+10%)", 80, () => { playerArmor = Math.min(80, playerArmor + 10); }, "-70px", "-220px");
+            createShopBtn("Drone: Curacion", 300, () => { droneHealLevel++; }, "-70px", "0px");
+            createShopBtn("Drone: Misiles", 300, () => { droneAttackLevel++; }, "-70px", "220px");
+            createShopBtn("+1 DRON", 500, () => { createDrone(new BABYLON.Vector3(-1.5, 1.5, -1.5)); }, "10px", "0px");
+
+            let unlockedWeapons = { 1: true, 2: false, 3: false, 4: false };
+            let currentWeapon = 1;
+            const btnFlame = createShopBtn("Lanzallamas", 100, () => { unlockedWeapons[2] = true; }, "90px", "-220px", () => unlockedWeapons[2]);
+            const btnPlasma = createShopBtn("Plasma Gun", 200, () => { unlockedWeapons[3] = true; }, "90px", "0px", () => unlockedWeapons[3]);
+            const btnLaser = createShopBtn("Laser Rifle", 200, () => { unlockedWeapons[4] = true; }, "90px", "220px", () => unlockedWeapons[4]);
+
+            const updateShopUI = () => { 
+                statsText.text = `ORO: ${gold} | Daño: ${rifleDamage} | Armor: ${playerArmor}%`; 
+                if(unlockedWeapons[2]) { btnFlame.background = "green"; btnFlame.children[0].text = "LANZALLAMAS (LISTO)"; }
+                if(unlockedWeapons[3]) { btnPlasma.background = "green"; btnPlasma.children[0].text = "PLASMA (LISTO)"; }
+                if(unlockedWeapons[4]) { btnLaser.background = "green"; btnLaser.children[0].text = "LASER (LISTO)"; }
+            };
+
+            window.addEventListener("keydown", (ev) => {
+                if(ev.key === "Escape") { isPaused = !isPaused; shopContainer.isVisible = isPaused; if(isPaused) { updateShopUI(); canvas.style.cursor = cursorBlueArrow; } else { canvas.style.cursor = "crosshair"; } }
+            });
+
+            // --- LOOT ---
+            const dropMats = { gold: new BABYLON.StandardMaterial("goldM", scene), xp: new BABYLON.StandardMaterial("xpM", scene) };
+            dropMats.gold.diffuseColor = new BABYLON.Color3(1, 0.8, 0); dropMats.gold.emissiveColor = new BABYLON.Color3(0.5, 0.4, 0);
+            dropMats.xp.diffuseColor = new BABYLON.Color3(0, 0.5, 1); dropMats.xp.emissiveColor = new BABYLON.Color3(0, 0.2, 0.5);
+
+            const spawnSpecificItem = (pos, type) => {
+                let mesh;
+                if(type === "gold") {
+                    mesh = BABYLON.MeshBuilder.CreateCylinder("coin", {diameter: 0.5, height: 0.1}, scene);
+                    mesh.rotation.x = Math.PI/2; mesh.material = dropMats.gold;
+                } else {
+                    mesh = BABYLON.MeshBuilder.CreateSphere("orb", {diameter: 0.4}, scene); mesh.material = dropMats.xp;
+                }
+                mesh.position = pos.clone();
+                mesh.position.y = 1;
+                mesh.position.x += (Math.random() - 0.5); mesh.position.z += (Math.random() - 0.5);
+                gl.addIncludedOnlyMesh(mesh);
+                drops.push({ mesh: mesh, type: type, rotationSpeed: Math.random() * 0.1 });
+            };
+            const spawnLoot = (pos) => { spawnSpecificItem(pos, "gold"); spawnSpecificItem(pos, "xp"); };
+
+            // --- EFECTOS VISUALES ---
+            const createFloatingText = (pos, msg, color) => {
+                const anchor = new BABYLON.TransformNode("a", scene); anchor.position = pos.clone(); anchor.position.y += 2;
+                const rect = new BABYLON.GUI.Rectangle(); rect.width = "200px"; rect.height = "40px"; rect.thickness = 0;
+                advancedTexture.addControl(rect); rect.linkWithMesh(anchor); rect.linkOffsetY = -50;
+                const txt = new BABYLON.GUI.TextBlock(); txt.text = msg; txt.color = color; txt.fontWeight = "bold"; txt.fontSize = 24; rect.addControl(txt);
+                let f=0;
+                const obs = scene.onBeforeRenderObservable.add(()=>{ if(isPaused) return; f++; anchor.position.y += 0.05; rect.alpha -= 0.02; if(f>50) { rect.dispose(); anchor.dispose(); scene.onBeforeRenderObservable.remove(obs); } });
+            };
+
+            const goreMat = new BABYLON.StandardMaterial("goreMat", scene);
+            goreMat.diffuseColor = new BABYLON.Color3(0.2, 1, 0.2); goreMat.emissiveColor = new BABYLON.Color3(0.2, 1, 0.2); goreMat.disableLighting = true;
+
+            const spawnGore = (position) => {
+                for(let i=0; i<6; i++) {
+                    const drop = BABYLON.MeshBuilder.CreateSphere("g", {diameter: 0.15}, scene);
+                    drop.material = goreMat; drop.position = position.clone();
+                    const vel = new BABYLON.Vector3((Math.random()-0.5)*0.5, Math.random()*0.5, (Math.random()-0.5)*0.5);
+                    gl.addIncludedOnlyMesh(drop);
+                    let life = 0;
+                    const anim = scene.onBeforeRenderObservable.add(() => {
+                        if(isPaused) return; life++; vel.y -= 0.02; drop.position.addInPlace(vel);
+                        if(drop.position.y < 0) drop.position.y = 0;
+                        if(life > 30) { drop.dispose(); scene.onBeforeRenderObservable.remove(anim); }
+                    });
+                }
+            };
+
+            const spawnDeathExplosion = (position) => {
+                for(let i=0; i<30; i++) { 
+                    // CAMBIO: Esferas mas chicas (0.1)
+                    const drop = BABYLON.MeshBuilder.CreateSphere("ex", {diameter: Math.random()*0.15 + 0.05}, scene);
+                    drop.material = goreMat; drop.position = position.clone();
+                    const vel = new BABYLON.Vector3((Math.random()-0.5), Math.random()*0.8, (Math.random()-0.5)).scale(0.8);
+                    gl.addIncludedOnlyMesh(drop);
+                    let life = 0;
+                    const anim = scene.onBeforeRenderObservable.add(() => {
+                        if(isPaused) return; life++; vel.y -= 0.02; drop.position.addInPlace(vel);
+                        if(drop.position.y < 0) { drop.position.y = 0; vel.x *= 0.8; vel.z *= 0.8; }
+                        if(life > 60) { drop.dispose(); scene.onBeforeRenderObservable.remove(anim); }
+                    });
+                }
+            };
+
+            const advanceWave = () => {
+                if (currentWave >= maxWaves) return;
+                currentWave++; enemiesKilledInWave = 0; enemiesRequiredForWave += 10;
+                currentSpawnRate = currentSpawnRate * 0.9; currentEnemyDamage = currentEnemyDamage * 1.05;
+                waveTitle.text = "WAVE " + currentWave;
+                isPaused = true; shopContainer.isVisible = true; updateShopUI(); canvas.style.cursor = cursorBlueArrow;
+            };
+
+            const applyDamage = (e, dmg) => {
+                if(!e.metadata || e.isDisposed()) return;
+                e.metadata.hp -= dmg; 
+                createFloatingText(e.position, dmg, "#FF1493");
+                spawnGore(e.position);
+                
+                // FLASH BLANCO
+                if(e.material) {
+                    if(!e.metadata.originalEmissive) e.metadata.originalEmissive = e.material.emissiveColor.clone();
+                    e.material.emissiveColor = new BABYLON.Color3(1, 1, 1);
+                }
+                setTimeout(() => { if(e && e.material && e.metadata.originalEmissive) e.material.emissiveColor = e.metadata.originalEmissive; }, 50);
+
+                if(e.metadata.hp <= 0) { 
+                    spawnLoot(e.position); spawnDeathExplosion(e.position);
+                    enemiesKilledInWave++; updateHUD(); 
+                    if(enemiesKilledInWave >= enemiesRequiredForWave) advanceWave();
+                    e.dispose(); const idx = enemies.indexOf(e); if(idx !== -1) enemies.splice(idx, 1); 
+                }
+            };
+
+            const takePlayerDamage = (amt) => {
+                const reducedDmg = amt * (1 - (playerArmor/100));
+                playerHealth -= reducedDmg;
+                if(damageAlpha < 0.1) damageAlpha = 0.3; damageDiv.style.opacity = damageAlpha;
+                updateHUD();
+                if(playerHealth <= 0) { isPaused = true; const go = new BABYLON.GUI.TextBlock(); go.text="MISION FALLIDA"; go.fontSize=80; go.color="red"; advancedTexture.addControl(go); }
+            };
+
+            // --- ARMAS ---
+            let ammo = 100; let isReloading = false; let machineGunRate = 100;
+            const reload = () => {
+                if(isReloading || ammo === 100) return;
+                isReloading = true; updateHUD();
+                setTimeout(() => { ammo = 100; isReloading = false; updateHUD(); }, 1500);
+            };
+            const fireWeapon = () => {
+                const now = Date.now();
+                let rate = machineGunRate; if(currentWeapon === 2) rate = 50; if(currentWeapon === 3) rate = 500; if(currentWeapon === 4) rate = 350; 
+                if (now - lastFireTime < rate) return;
+                if (currentWeapon === 1) { if(isReloading) return; if(ammo <= 0) { reload(); return; } ammo--; updateHUD(); }
+                lastFireTime = now; spawnMuzzleFlash(); 
+                if(currentWeapon === 1) spawnBullet(); else if(currentWeapon === 2) spawnFlameProjectile(); else if(currentWeapon === 3) spawnPlasma(); else if(currentWeapon === 4) spawnLaser();
+            };
+
+            const bulletMat = new BABYLON.StandardMaterial("bulletMat", scene); bulletMat.emissiveColor = new BABYLON.Color3(1, 1, 0.5); bulletMat.disableLighting = true;
+            const muzzleFlashMat = new BABYLON.StandardMaterial("muzzleMat", scene); muzzleFlashMat.emissiveColor = new BABYLON.Color3(1, 0.8, 0.1); muzzleFlashMat.disableLighting = true;
+            const plasmaMat = new BABYLON.StandardMaterial("plasmaMat", scene); plasmaMat.emissiveColor = new BABYLON.Color3(0, 1, 1); plasmaMat.disableLighting = true;
+            const flameMat = new BABYLON.StandardMaterial("flameMat", scene); flameMat.emissiveColor = new BABYLON.Color3(1, 0.3, 0); flameMat.disableLighting = true;
+            const laserMat = new BABYLON.StandardMaterial("laserMat", scene); laserMat.emissiveColor = new BABYLON.Color3(1, 0, 0); laserMat.disableLighting = true;
+
+            const getSpawnPos = () => { const p = player.position.clone().add(player.forward.scale(0.8)).add(player.right.scale(0.5)); p.y = 0.6; return p; };
+
+            // CAMBIO: Bala 60% de tamano (0.6)
+            const spawnBullet = () => {
+                const origin = getSpawnPos(); const dir = player.forward.clone(); dir.x += (Math.random()-0.5)*0.03; dir.z += (Math.random()-0.5)*0.03; dir.normalize();
+                const bullet = BABYLON.MeshBuilder.CreateSphere("b", {diameter: 0.6}, scene); bullet.scaling.z = 2; bullet.position = origin; bullet.lookAt(origin.add(dir)); bullet.material = bulletMat;
+                gl.addIncludedOnlyMesh(bullet); bullet.metadata = { dir: dir, speed: 70, damage: rifleDamage, life: 100 }; projectiles.push(bullet);
+            };
+            const spawnFlameProjectile = () => {
+                const origin = getSpawnPos(); const dir = player.forward.clone(); dir.x += (Math.random()-0.5)*0.2; dir.z += (Math.random()-0.5)*0.2; dir.normalize();
+                const flame = BABYLON.MeshBuilder.CreateSphere("f", {diameter: 0.6}, scene); flame.scaling.z = 4; flame.position = origin; flame.lookAt(origin.add(dir)); flame.material = flameMat;
+                gl.addIncludedOnlyMesh(flame); flame.metadata = { dir: dir, speed: 40, damage: 5, life: 30 }; projectiles.push(flame);
+            };
+            const spawnPlasma = () => {
+                const origin = getSpawnPos(); const ball = BABYLON.MeshBuilder.CreateSphere("p", {diameter: 0.8}, scene); ball.position = origin; ball.material = plasmaMat; gl.addIncludedOnlyMesh(ball);
+                ball.metadata = { dir: player.forward.clone(), speed: 30, damage: 80, life: 150 }; projectiles.push(ball);
+            };
+            const spawnLaser = () => {
+                const origin = getSpawnPos(); const laser = BABYLON.MeshBuilder.CreateCylinder("l", {height: 4, diameter: 0.1}, scene);
+                laser.rotation.x = Math.PI/2; laser.position = origin; laser.lookAt(origin.add(player.forward)); laser.material = laserMat; gl.addIncludedOnlyMesh(laser);
+                laser.metadata = { dir: player.forward.clone(), speed: 150, damage: rifleDamage * 2, life: 100 }; projectiles.push(laser);
+            };
+            const spawnMuzzleFlash = () => {
+                const pos = getSpawnPos(); const flash = BABYLON.MeshBuilder.CreateSphere("f", {diameter: 0.2}, scene); flash.position = pos; flash.material = muzzleFlashMat; gl.addIncludedOnlyMesh(flash); setTimeout(()=>flash.dispose(), 40);
+            };
+
+            // --- ENEMIGOS (SIN TEXTURAS, COLORES MATES) ---
+            // Alien: Fucsia Mate
+            const alienMatBase = new BABYLON.StandardMaterial("alienMatBase", scene);
+            alienMatBase.diffuseColor = new BABYLON.Color3(1, 0, 1); 
+            alienMatBase.emissiveColor = new BABYLON.Color3(0, 0, 0); // Sin luz propia
+            alienMatBase.specularColor = new BABYLON.Color3(0, 0, 0); // Sin brillo plástico
+            alienMatBase.maxSimultaneousLights = 10;
+
+            // Gusano: Fucsia Mate
+            const wormMatBase = new BABYLON.StandardMaterial("wormMatBase", scene);
+            wormMatBase.diffuseColor = new BABYLON.Color3(1, 0, 1); 
+            wormMatBase.emissiveColor = new BABYLON.Color3(0, 0, 0); 
+            wormMatBase.specularColor = new BABYLON.Color3(0, 0, 0); 
+            wormMatBase.maxSimultaneousLights = 10;
+
+            const spawnEnemy = () => {
+                if(enemies.length > 35 || isPaused) return;
+                const angle = Math.random() * Math.PI * 2; const dist = 35 + Math.random() * 15;
+                const pos = new BABYLON.Vector3(player.position.x + Math.cos(angle)*dist, 1, player.position.z + Math.sin(angle)*dist);
+                const isWorm = Math.random() > 0.5;
+                let enemyMesh;
+                if (isWorm) {
+                    enemyMesh = BABYLON.MeshBuilder.CreateTube("worm", {path: [new BABYLON.Vector3(0,0,-1), new BABYLON.Vector3(0,0,1)], radius: 0.4, cap: BABYLON.Mesh.CAP_ALL}, scene);
+                    enemyMesh.position = pos; enemyMesh.position.y = 0.5; 
+                    enemyMesh.material = wormMatBase.clone("wMat"+Date.now()); 
+                    enemyMesh.rotation.y = Math.random() * Math.PI * 2;
+                    enemyMesh.metadata = { type: "worm", hp: 30 + (playerLevel * 5), animOffset: Math.random()*100, baseScaleZ: 1 };
+                    shadowGenerator.addShadowCaster(enemyMesh);
+                } else {
+                    const body = BABYLON.MeshBuilder.CreateCylinder("eBody", {height:2, diameter:0.8}, scene); 
+                    body.rotation.x = Math.PI/2; body.position = pos; 
+                    const mat = alienMatBase.clone("aMat"+Date.now()); body.material = mat;
+                    const head = BABYLON.MeshBuilder.CreateSphere("head", {diameter: 1}, scene);
+                    head.scaling = new BABYLON.Vector3(0.8, 1, 2.5); head.position = new BABYLON.Vector3(0, 1, -0.5); head.parent = body; head.material = mat;
+                    const armL = BABYLON.MeshBuilder.CreateBox("armL", {height: 2.5, width: 0.3, depth: 0.3}, scene);
+                    armL.position = new BABYLON.Vector3(0.8, 0, 0.5); armL.rotation.z = Math.PI/2; armL.parent = body; armL.material = mat;
+                    const armR = BABYLON.MeshBuilder.CreateBox("armR", {height: 2.5, width: 0.3, depth: 0.3}, scene);
+                    armR.position = new BABYLON.Vector3(-0.8, 0, 0.5); armR.rotation.z = Math.PI/2; armR.parent = body; armR.material = mat;
+                    enemyMesh = body;
+                    enemyMesh.metadata = { type: "alien", hp: 50 + (playerLevel*10), animOffset: Math.random()*100, armL: armL, armR: armR }; 
+                    shadowGenerator.addShadowCaster(body);
+                }
+                enemies.push(enemyMesh);
+            };
+
+            // INPUTS Y RENDER
+            scene.onPointerObservable.add((pi) => { if (pi.type === BABYLON.PointerEventTypes.POINTERDOWN) isMouseDown = true; if (pi.type === BABYLON.PointerEventTypes.POINTERUP) isMouseDown = false; });
+            scene.actionManager = new BABYLON.ActionManager(scene);
+            scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyDownTrigger, (evt) => {
+                inputMap[evt.sourceEvent.key.toLowerCase()] = true;
+                if(evt.sourceEvent.key.toLowerCase() === 'r') reload();
+                if(evt.sourceEvent.key === '1' && unlockedWeapons[1]) { currentWeapon = 1; updateHUD(); }
+                if(evt.sourceEvent.key === '2' && unlockedWeapons[2]) { currentWeapon = 2; updateHUD(); }
+                if(evt.sourceEvent.key === '3' && unlockedWeapons[3]) { currentWeapon = 3; updateHUD(); }
+                if(evt.sourceEvent.key === '4' && unlockedWeapons[4]) { currentWeapon = 4; updateHUD(); }
+            }));
+            scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyUpTrigger, (evt) => inputMap[evt.sourceEvent.key.toLowerCase()] = false));
+
+            // PIPELINE POST-PROCESADO
+            const pipeline = new BABYLON.DefaultRenderingPipeline("default", true, scene, [camera]);
+            pipeline.bloomEnabled = true;
+            pipeline.bloomThreshold = 0.2;
+            pipeline.bloomWeight = 0.5;
+            pipeline.bloomKernel = 64;
+            pipeline.fxaaEnabled = true; 
+
+            scene.registerBeforeRender(() => {
+                if(isPaused) return;
+                const dt = engine.getDeltaTime()/1000; time += dt;
+                if(damageAlpha > 0) { damageAlpha -= 0.01; if(damageAlpha < 0) damageAlpha = 0; damageDiv.style.opacity = damageAlpha; }
+                if (Date.now() - lastSpawnTime > currentSpawnRate) { spawnEnemy(); lastSpawnTime = Date.now(); }
+
+                const pick = scene.pick(scene.pointerX, scene.pointerY, (m) => m === ground);
+                if(pick.hit) { const t = pick.pickedPoint; t.y = player.position.y; player.lookAt(t); }
+                if(isMouseDown) fireWeapon();
+                let v = new BABYLON.Vector3(0,0,0);
+                if(inputMap["w"]) v.z = 1; if(inputMap["s"]) v.z = -1; if(inputMap["a"]) v.x = -1; if(inputMap["d"]) v.x = 1;
+                if(v.length() > 0) player.moveWithCollisions(v.normalize().scale(12*dt));
+                camera.target.x = player.position.x; camera.target.z = player.position.z;
+
+                radarDots.forEach(d => d.dispose()); radarDots = []; const radarRange = 40; 
+                enemies.forEach(e => {
+                    const dist = BABYLON.Vector3.Distance(player.position, e.position);
+                    if (dist < radarRange) {
+                        const dot = new BABYLON.GUI.Ellipse(); dot.width = "6px"; dot.height = "6px"; dot.background = "red";
+                        dot.horizontalAlignment = 2; dot.verticalAlignment = 2;
+                        const scale = 75 / radarRange;
+                        dot.left = (e.position.x - player.position.x) * scale + "px";
+                        dot.top = (e.position.z - player.position.z) * -scale + "px";
+                        radarContainer.addControl(dot); radarDots.push(dot);
+                    }
+                });
+
+                drones.forEach((d, i) => {
+                    d.metadata.angle += dt;
+                    const targetPos = player.position.add(new BABYLON.Vector3(Math.cos(d.metadata.angle + i)*2, 1.5, Math.sin(d.metadata.angle + i)*2));
+                    d.position = BABYLON.Vector3.Lerp(d.position, targetPos, 0.05); d.lookAt(player.position);
+                    if(Date.now() - d.metadata.lastAction > 2000) { 
+                        d.metadata.lastAction = Date.now();
+                        if(droneHealLevel > 0 && playerHealth < playerMaxHealth) { playerHealth = Math.min(playerMaxHealth, playerHealth + (droneHealLevel * 5)); createFloatingText(player.position, "+HP", "green"); updateHUD(); }
+                        if(droneAttackLevel > 0 && enemies.length > 0) {
+                            let nearest = null; let minDst = 999;
+                            enemies.forEach(e => { const dst = BABYLON.Vector3.Distance(d.position, e.position); if(dst < 20 && dst < minDst) { minDst = dst; nearest = e; } });
+                            if(nearest) {
+                                const m = BABYLON.MeshBuilder.CreateBox("misil", {size: 0.3}, scene); m.position = d.position.clone(); m.lookAt(nearest.position);
+                                m.material = new BABYLON.StandardMaterial("mM", scene); m.material.emissiveColor = new BABYLON.Color3(1,0,0);
+                                projectiles.push({mesh:m, dir: nearest.position.subtract(d.position).normalize(), speed: 40, damage: droneAttackLevel * 20, life: 50});
+                            }
+                        }
+                    }
+                });
+
+                for(let i=drops.length-1; i>=0; i--) {
+                    let d = drops[i]; d.mesh.rotation.y += d.rotationSpeed;
+                    if(BABYLON.Vector3.Distance(player.position, d.mesh.position) < 2.5) {
+                        if(d.type === "gold") { gold += 10; createFloatingText(player.position, "+10 Gold", "yellow"); } 
+                        else { playerXP += 20; createFloatingText(player.position, "+20 XP", "cyan"); if(playerXP >= playerMaxXP) { playerXP = 0; playerMaxXP *= 1.2; playerLevel++; playerHealth = playerMaxHealth; createFloatingText(player.position, "LEVEL UP!", "white"); } }
+                        updateHUD(); d.mesh.dispose(); drops.splice(i, 1);
+                    }
+                }
+
+                enemies.forEach(e => {
+                    e.lookAt(player.position);
+                    e.position.addInPlace(player.position.subtract(e.position).normalize().scale(6*dt));
+                    if (e.metadata.type === "alien") {
+                        const swing = Math.sin(time * 15 + e.metadata.animOffset) * 0.8; 
+                        e.metadata.armL.rotation.z = Math.PI/2 + swing; e.metadata.armR.rotation.z = Math.PI/2 - swing;
+                        e.position.y = 1 + Math.abs(Math.sin(time * 12)) * 0.2;
+                    } else if (e.metadata.type === "worm") {
+                        const stretch = 1 + Math.sin(time * 10 + e.metadata.animOffset) * 0.3;
+                        e.scaling.z = stretch;
+                    }
+                    if(BABYLON.Vector3.Distance(player.position, e.position) < 2.5) {
+                        if(Date.now() - (e.metadata.lastHit || 0) > 1000) { takePlayerDamage(currentEnemyDamage); e.metadata.lastHit = Date.now(); }
+                    }
+                });
+
+                for(let i=projectiles.length-1; i>=0; i--){
+                    let p = projectiles[i]; let mesh = p.mesh || p; if(p.mesh) mesh = p.mesh;
+                    mesh.position.addInPlace((p.dir || p.metadata.dir).scale((p.speed || p.metadata.speed) * dt));
+                    if(p.life) p.life--; else p.metadata.life--;
+                    let hit = false;
+                    for(let j=0; j<enemies.length; j++) {
+                        if(mesh.intersectsMesh(enemies[j], true)) { applyDamage(enemies[j], p.damage || p.metadata.damage); hit = true; break; }
+                    }
+                    if(hit || (p.life !== undefined ? p.life <= 0 : p.metadata.life <= 0)) { mesh.dispose(); projectiles.splice(i,1); }
+                }
+            });
+            updateHUD();
+            return scene;
+        };
+        const scene = createScene();
+        engine.runRenderLoop(() => scene.render());
+        window.addEventListener("resize", () => engine.resize());
+    </script>
+</body>
+</html>
