@@ -115,7 +115,6 @@
             // Textures
             const mainTexture = new BABYLON.Texture("./textures/alienterrain.png", scene);
             mainTexture.uScale = 10; mainTexture.vScale = 10;
-            const marineTexture = new BABYLON.Texture("./textures/marinetexture.png", scene);
 
             // Ground
             const ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 200, height: 200}, scene);
@@ -256,7 +255,7 @@
 
             const btnNextWave = BABYLON.GUI.Button.CreateSimpleButton("btnNext", "START NEXT WAVE"); btnNextWave.fontFamily = "Jost";
             btnNextWave.width = "400px"; btnNextWave.height = "60px"; btnNextWave.color = "white"; btnNextWave.background = "green"; btnNextWave.top = "250px";
-            btnNextWave.onPointerUpObservable.add(() => { isPaused = false; shopContainer.isVisible = false; canvas.style.cursor = "crosshair"; updateHUD(); });
+            btnNextWave.onPointerUpObservable.add(() => { isPaused = false; lastSpawnTime = Date.now(); shopContainer.isVisible = false; canvas.style.cursor = "crosshair"; updateHUD(); });
             shopContainer.addControl(btnNextWave);
 
             const createShopBtn = (text, price, action, top, left, checkBuy) => {
@@ -358,7 +357,13 @@
             };
 
             const advanceWave = () => {
-                if (currentWave >= maxWaves) return;
+                if (currentWave >= maxWaves) {
+                    isPaused = true; 
+                    const winTxt = new BABYLON.GUI.TextBlock(); 
+                    winTxt.text="MISSION COMPLETE"; winTxt.fontFamily="Jost"; winTxt.fontSize=80; winTxt.color="green"; 
+                    advancedTexture.addControl(winTxt); 
+                    return;
+                }
                 currentWave++; enemiesKilledInWave = 0; enemiesRequiredForWave += 10;
                 currentSpawnRate = currentSpawnRate * 0.9; currentEnemyDamage = currentEnemyDamage * 1.05;
                 waveTitle.text = "WAVE " + currentWave;
@@ -382,7 +387,7 @@
                     spawnLoot(e.position); spawnDeathExplosion(e.position);
                     enemiesKilledInWave++; updateHUD(); 
                     if(enemiesKilledInWave >= enemiesRequiredForWave) advanceWave();
-                    e.dispose(); const idx = enemies.indexOf(e); if(idx !== -1) enemies.splice(idx, 1); 
+                    shadowGenerator.removeShadowCaster(e); e.dispose(false, true); const idx = enemies.indexOf(e); if(idx !== -1) enemies.splice(idx, 1); 
                 }
             };
 
@@ -415,6 +420,7 @@
             const plasmaMat = new BABYLON.StandardMaterial("plasmaMat", scene); plasmaMat.emissiveColor = new BABYLON.Color3(0, 1, 1); plasmaMat.disableLighting = true;
             const flameMat = new BABYLON.StandardMaterial("flameMat", scene); flameMat.emissiveColor = new BABYLON.Color3(1, 0.3, 0); flameMat.disableLighting = true;
             const laserMat = new BABYLON.StandardMaterial("laserMat", scene); laserMat.emissiveColor = new BABYLON.Color3(1, 0, 0); laserMat.disableLighting = true;
+            const missileMat = new BABYLON.StandardMaterial("missileMat", scene); missileMat.emissiveColor = new BABYLON.Color3(1, 0, 0); missileMat.disableLighting = true;
 
             const getSpawnPos = () => { const p = player.position.clone().add(player.forward.scale(0.8)).add(player.right.scale(0.5)); p.y = 0.6; return p; };
 
@@ -467,7 +473,6 @@
                     enemyMesh = BABYLON.MeshBuilder.CreateTube("worm", {path: [new BABYLON.Vector3(0,0,-1), new BABYLON.Vector3(0,0,1)], radius: 0.4, cap: BABYLON.Mesh.CAP_ALL}, scene);
                     enemyMesh.position = pos; enemyMesh.position.y = 0.5; 
                     enemyMesh.material = wormMatBase.clone("wMat"+Date.now()); 
-                    enemyMesh.rotation.y = Math.random() * Math.PI * 2;
                     enemyMesh.metadata = { type: "worm", hp: 30 + (playerLevel * 5), animOffset: Math.random()*100, baseScaleZ: 1 };
                     shadowGenerator.addShadowCaster(enemyMesh);
                 } else {
@@ -519,7 +524,7 @@
                 if(isMouseDown) fireWeapon();
                 let v = new BABYLON.Vector3(0,0,0);
                 if(inputMap["w"]) v.z = 1; if(inputMap["s"]) v.z = -1; if(inputMap["a"]) v.x = -1; if(inputMap["d"]) v.x = 1;
-                if(v.length() > 0) player.moveWithCollisions(v.normalize().scale(12*dt));
+                if(v.length() > 0) player.position.addInPlace(v.normalize().scale(12*dt));
                 camera.target.x = player.position.x; camera.target.z = player.position.z;
 
                 radarDots.forEach(d => d.dispose()); radarDots = []; const radarRange = 40; 
@@ -547,7 +552,7 @@
                             enemies.forEach(e => { const dst = BABYLON.Vector3.Distance(d.position, e.position); if(dst < 20 && dst < minDst) { minDst = dst; nearest = e; } });
                             if(nearest) {
                                 const m = BABYLON.MeshBuilder.CreateBox("misil", {size: 0.3}, scene); m.position = d.position.clone(); m.lookAt(nearest.position);
-                                m.material = new BABYLON.StandardMaterial("mM", scene); m.material.emissiveColor = new BABYLON.Color3(1,0,0);
+                                m.material = missileMat;
                                 projectiles.push({mesh:m, dir: nearest.position.subtract(d.position).normalize(), speed: 40, damage: droneAttackLevel * 20, life: 50});
                             }
                         }
