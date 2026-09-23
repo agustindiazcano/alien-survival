@@ -220,8 +220,8 @@
             radarContainer.width = "150px"; radarContainer.height = "150px";
             radarContainer.color = "green"; radarContainer.thickness = 2;
             radarContainer.background = "black"; radarContainer.alpha = 0.7;
-            radarContainer.horizontalAlignment = 0; radarContainer.verticalAlignment = 1;
-            radarContainer.left = "20px"; radarContainer.top = "-20px";
+            radarContainer.horizontalAlignment = 2; radarContainer.verticalAlignment = 1;
+            radarContainer.left = "-20px"; radarContainer.top = "-20px";
             advancedTexture.addControl(radarContainer);
             const radarCenter = new BABYLON.GUI.Ellipse();
             radarCenter.width = "4px"; radarCenter.height = "4px"; radarCenter.background = "white";
@@ -503,7 +503,7 @@
                     btn.onPointerOutObservable.add(() => inputMap[k] = false);
                     dpad.addControl(btn);
                 };
-                createBtn("W", "-65px", "0px", "w"); createBtn("S", "65px", "0px", "s"); createBtn("A", "0px", "-65px", "a"); createBtn("D", "0px", "65px", "d");
+                createBtn("▲", "-65px", "0px", "w"); createBtn("▼", "65px", "0px", "s"); createBtn("◄", "0px", "-65px", "a"); createBtn("►", "0px", "65px", "d");
             }
             scene.actionManager = new BABYLON.ActionManager(scene);
             scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyDownTrigger, (evt) => {
