@@ -381,7 +381,7 @@
                     if(!e.metadata.originalEmissive) e.metadata.originalEmissive = e.material.emissiveColor.clone();
                     e.material.emissiveColor = new BABYLON.Color3(1, 1, 1);
                 }
-                setTimeout(() => { if(e && e.material && e.metadata.originalEmissive) e.material.emissiveColor = e.metadata.originalEmissive; }, 50);
+                setTimeout(() => { if(e && !e.isDisposed() && e.material && e.metadata && e.metadata.originalEmissive) e.material.emissiveColor = e.metadata.originalEmissive; }, 50);
 
                 if(e.metadata.hp <= 0) { 
                     spawnLoot(e.position); spawnDeathExplosion(e.position);
@@ -615,6 +615,7 @@
                                 const localEnemies = spatialGrid.get(key);
                                 for(let j=0; j<localEnemies.length; j++) {
                                     const e = localEnemies[j];
+                                    if(e.isDisposed() || !e.metadata) continue;
                                     const eRadius = e.metadata.type === "worm" ? 0.5 : 0.8;
                                     const dxD = mesh.position.x - e.position.x;
                                     const dzD = mesh.position.z - e.position.z;
