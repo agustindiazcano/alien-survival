@@ -220,8 +220,8 @@
             radarContainer.width = "150px"; radarContainer.height = "150px";
             radarContainer.color = "green"; radarContainer.thickness = 2;
             radarContainer.background = "black"; radarContainer.alpha = 0.7;
-            radarContainer.horizontalAlignment = 0; radarContainer.verticalAlignment = 1;
-            radarContainer.left = "20px"; radarContainer.top = "-20px";
+            radarContainer.horizontalAlignment = 2; radarContainer.verticalAlignment = 1;
+            radarContainer.left = "-20px"; radarContainer.top = "-20px";
             advancedTexture.addControl(radarContainer);
             const radarCenter = new BABYLON.GUI.Ellipse();
             radarCenter.width = "4px"; radarCenter.height = "4px"; radarCenter.background = "white";
@@ -484,7 +484,27 @@
             };
 
             // INPUTS AND RENDER
-            scene.onPointerObservable.add((pi) => { if (pi.type === BABYLON.PointerEventTypes.POINTERDOWN) isMouseDown = true; if (pi.type === BABYLON.PointerEventTypes.POINTERUP) isMouseDown = false; });
+            const isMobile = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+            scene.onPointerObservable.add((pi) => { 
+                if (isMobile && pi.event.clientX < 250 && pi.event.clientY > window.innerHeight - 250) return;
+                if (pi.type === BABYLON.PointerEventTypes.POINTERDOWN) isMouseDown = true; 
+                if (pi.type === BABYLON.PointerEventTypes.POINTERUP) isMouseDown = false; 
+            });
+            
+            if (isMobile) {
+                const dpad = new BABYLON.GUI.Rectangle(); dpad.width = "200px"; dpad.height = "200px";
+                dpad.horizontalAlignment = 0; dpad.verticalAlignment = 1; dpad.thickness = 0; dpad.left = "10px"; dpad.top = "-10px";
+                advancedTexture.addControl(dpad);
+                const createBtn = (txt, t, l, k) => {
+                    const btn = BABYLON.GUI.Button.CreateSimpleButton("btn"+k, txt);
+                    btn.width = "60px"; btn.height = "60px"; btn.color = "white"; btn.background = "rgba(50,50,50,0.6)"; btn.top = t; btn.left = l; btn.fontSize = 24; btn.thickness = 2;
+                    btn.onPointerDownObservable.add(() => inputMap[k] = true);
+                    btn.onPointerUpObservable.add(() => inputMap[k] = false);
+                    btn.onPointerOutObservable.add(() => inputMap[k] = false);
+                    dpad.addControl(btn);
+                };
+                createBtn("▲", "-65px", "0px", "w"); createBtn("▼", "65px", "0px", "s"); createBtn("◄", "0px", "-65px", "a"); createBtn("►", "0px", "65px", "d");
+            }
             scene.actionManager = new BABYLON.ActionManager(scene);
             scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyDownTrigger, (evt) => {
                 inputMap[evt.sourceEvent.key.toLowerCase()] = true;
@@ -510,8 +530,10 @@
                 if(damageAlpha > 0) { damageAlpha -= 0.01; if(damageAlpha < 0) damageAlpha = 0; damageDiv.style.opacity = damageAlpha; }
                 if (Date.now() - lastSpawnTime > currentSpawnRate) { spawnEnemy(); lastSpawnTime = Date.now(); }
 
-                const pick = scene.pick(scene.pointerX, scene.pointerY, (m) => m === ground);
-                if(pick.hit) { const t = pick.pickedPoint; t.y = player.position.y; player.lookAt(t); }
+                if (!isMobile || scene.pointerX > 250 || scene.pointerY < window.innerHeight - 250) {
+                    const pick = scene.pick(scene.pointerX, scene.pointerY, (m) => m === ground);
+                    if(pick.hit) { const t = pick.pickedPoint; t.y = player.position.y; player.lookAt(t); }
+                }
                 if(isMouseDown) fireWeapon();
                 let v = new BABYLON.Vector3(0,0,0);
                 if(inputMap["w"]) v.z = 1; if(inputMap["s"]) v.z = -1; if(inputMap["a"]) v.x = -1; if(inputMap["d"]) v.x = 1;
