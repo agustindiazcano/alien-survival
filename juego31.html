@@ -2,13 +2,9 @@
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>Alien Survival - Experimental Game | Agustin Diaz-Cano</title>
+    <title>Marine Survival - Experimental Game | Agustin Diaz-Cano</title>
     <meta name="description" content="An experimental WebGL mini-game built with Babylon.js. Easter egg in the portfolio of Agustin Diaz-Cano, Software Engineer.">
     <meta name="author" content="Agustin Diaz-Cano">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Jost:wght@500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
     <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
     
@@ -47,7 +43,7 @@
         #letter-clip span{
             font-size:40vw; line-height:0.78; font-weight:700; color:var(--phosphor);
             text-shadow: 0 0 30px rgba(255,176,46,.85), 0 0 90px rgba(255,176,46,.35);
-            letter-spacing:-0.02em; font-family: 'Raleway', sans-serif;
+            letter-spacing:-0.02em; font-family: monospace;
         }
     </style>
 </head>
@@ -115,6 +111,7 @@
             // Textures
             const mainTexture = new BABYLON.Texture("./textures/alienterrain.png", scene);
             mainTexture.uScale = 10; mainTexture.vScale = 10;
+            const marineTexture = new BABYLON.Texture("./textures/marinetexture.png", scene);
 
             // Ground
             const ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 200, height: 200}, scene);
@@ -185,7 +182,7 @@
             advancedTexture.addControl(hudPanel);
 
             const createBar = (label, color) => {
-                const txt = new BABYLON.GUI.TextBlock(); txt.fontFamily = "Jost"; txt.text = label; txt.color = "white"; txt.fontSize = 14; txt.height = "20px"; txt.textHorizontalAlignment = 0;
+                const txt = new BABYLON.GUI.TextBlock(); txt.text = label; txt.color = "white"; txt.fontSize = 14; txt.height = "20px"; txt.textHorizontalAlignment = 0;
                 hudPanel.addControl(txt);
                 const cont = new BABYLON.GUI.Rectangle(); cont.width = "200px"; cont.height = "10px"; cont.color = "white"; cont.background = "black"; cont.horizontalAlignment = 0;
                 hudPanel.addControl(cont);
@@ -196,17 +193,17 @@
             const hpUI = createBar("HEALTH", "green");
             const armorUI = createBar("ARMOR: 0%", "gray");
             const xpUI = createBar("XP (Level 1)", "cyan");
-            const goldText = new BABYLON.GUI.TextBlock(); goldText.fontFamily = "Jost";
+            const goldText = new BABYLON.GUI.TextBlock();
             goldText.text = "GOLD: 0"; goldText.color = "#FFD700"; goldText.fontSize = 20; goldText.height = "30px"; goldText.textHorizontalAlignment = 0;
             hudPanel.addControl(goldText);
-            const weaponText = new BABYLON.GUI.TextBlock(); weaponText.fontFamily = "Jost";
+            const weaponText = new BABYLON.GUI.TextBlock();
             weaponText.text = "RIFLE (1)"; weaponText.color = "white"; weaponText.fontSize = 18; weaponText.height = "30px"; weaponText.textHorizontalAlignment = 0;
             hudPanel.addControl(weaponText);
 
             const wavePanel = new BABYLON.GUI.StackPanel();
             wavePanel.verticalAlignment = 0; wavePanel.horizontalAlignment = 2; wavePanel.top = "10px";
             advancedTexture.addControl(wavePanel);
-            const waveTitle = new BABYLON.GUI.TextBlock(); waveTitle.fontFamily = "Jost";
+            const waveTitle = new BABYLON.GUI.TextBlock();
             waveTitle.text = "WAVE 1"; waveTitle.color = "orange"; waveTitle.fontSize = 30; waveTitle.fontWeight = "bold"; waveTitle.height = "40px";
             wavePanel.addControl(waveTitle);
             const waveProgressContainer = new BABYLON.GUI.Rectangle();
@@ -215,7 +212,7 @@
             const waveProgressBar = new BABYLON.GUI.Rectangle();
             waveProgressBar.width = "0px"; waveProgressBar.height = "20px"; waveProgressBar.background = "#00BFFF"; waveProgressBar.horizontalAlignment = 0;
             waveProgressContainer.addControl(waveProgressBar);
-            const waveProgressText = new BABYLON.GUI.TextBlock(); waveProgressText.fontFamily = "Jost";
+            const waveProgressText = new BABYLON.GUI.TextBlock();
             waveProgressText.text = "0%"; waveProgressText.color = "white"; waveProgressText.fontSize = 14;
             waveProgressContainer.addControl(waveProgressText);
 
@@ -246,20 +243,20 @@
                 if(isReloading && currentWeapon === 1) weaponText.text = "RELOADING...";
             };
 
-            // --- SHOP ---
+            // --- TIENDA ---
             const shopContainer = new BABYLON.GUI.Rectangle();
             shopContainer.width = "700px"; shopContainer.height = "600px"; shopContainer.background = "#0f0f15"; shopContainer.color = "cyan"; shopContainer.thickness = 2; shopContainer.isVisible = false;
             advancedTexture.addControl(shopContainer);
-            const shopHeader = new BABYLON.GUI.TextBlock(); shopHeader.fontFamily = "Jost"; shopHeader.text = "SHOP - PAUSED"; shopHeader.color = "cyan"; shopHeader.fontSize = 24; shopHeader.top = "-260px"; shopContainer.addControl(shopHeader);
-            const statsText = new BABYLON.GUI.TextBlock(); statsText.fontFamily = "Jost"; statsText.text = ""; statsText.color = "white"; statsText.fontSize = 16; statsText.top = "-220px"; shopContainer.addControl(statsText);
+            const shopHeader = new BABYLON.GUI.TextBlock(); shopHeader.text = "SHOP - PAUSED"; shopHeader.color = "cyan"; shopHeader.fontSize = 24; shopHeader.top = "-260px"; shopContainer.addControl(shopHeader);
+            const statsText = new BABYLON.GUI.TextBlock(); statsText.text = ""; statsText.color = "white"; statsText.fontSize = 16; statsText.top = "-220px"; shopContainer.addControl(statsText);
 
-            const btnNextWave = BABYLON.GUI.Button.CreateSimpleButton("btnNext", "START NEXT WAVE"); btnNextWave.fontFamily = "Jost";
+            const btnNextWave = BABYLON.GUI.Button.CreateSimpleButton("btnNext", "START NEXT WAVE");
             btnNextWave.width = "400px"; btnNextWave.height = "60px"; btnNextWave.color = "white"; btnNextWave.background = "green"; btnNextWave.top = "250px";
-            btnNextWave.onPointerUpObservable.add(() => { isPaused = false; lastSpawnTime = Date.now(); shopContainer.isVisible = false; canvas.style.cursor = "crosshair"; updateHUD(); });
+            btnNextWave.onPointerUpObservable.add(() => { isPaused = false; shopContainer.isVisible = false; canvas.style.cursor = "crosshair"; updateHUD(); });
             shopContainer.addControl(btnNextWave);
 
             const createShopBtn = (text, price, action, top, left, checkBuy) => {
-                const btn = BABYLON.GUI.Button.CreateSimpleButton("btn", text + "\nCost: " + price); btn.fontFamily = "Jost";
+                const btn = BABYLON.GUI.Button.CreateSimpleButton("btn", text + "\nCost: " + price);
                 btn.width = "200px"; btn.height = "60px"; btn.color = "white"; btn.background = "#222"; btn.top = top; btn.left = left; btn.fontSize = 14;
                 btn.onPointerUpObservable.add(() => { if(gold >= price) { if(checkBuy && checkBuy()) return; gold -= price; action(); updateShopUI(); updateHUD(); } });
                 shopContainer.addControl(btn);
@@ -276,12 +273,12 @@
 
             let unlockedWeapons = { 1: true, 2: false, 3: false, 4: false };
             let currentWeapon = 1;
-            const btnFlame = createShopBtn("Flamethrower", 100, () => { unlockedWeapons[2] = true; }, "90px", "-220px", () => unlockedWeapons[2]);
+            const btnFlame = createShopBtn("Lanzallamas", 100, () => { unlockedWeapons[2] = true; }, "90px", "-220px", () => unlockedWeapons[2]);
             const btnPlasma = createShopBtn("Plasma Gun", 200, () => { unlockedWeapons[3] = true; }, "90px", "0px", () => unlockedWeapons[3]);
             const btnLaser = createShopBtn("Laser Rifle", 200, () => { unlockedWeapons[4] = true; }, "90px", "220px", () => unlockedWeapons[4]);
 
             const updateShopUI = () => { 
-                statsText.text = `GOLD: ${gold} | Damage: ${rifleDamage} | Armor: ${playerArmor}%`; 
+                statsText.text = `ORO: ${gold} | Daño: ${rifleDamage} | Armor: ${playerArmor}%`; 
                 if(unlockedWeapons[2]) { btnFlame.background = "green"; btnFlame.children[0].text = "FLAMETHROWER (READY)"; }
                 if(unlockedWeapons[3]) { btnPlasma.background = "green"; btnPlasma.children[0].text = "PLASMA (READY)"; }
                 if(unlockedWeapons[4]) { btnLaser.background = "green"; btnLaser.children[0].text = "LASER (READY)"; }
@@ -317,7 +314,7 @@
                 const anchor = new BABYLON.TransformNode("a", scene); anchor.position = pos.clone(); anchor.position.y += 2;
                 const rect = new BABYLON.GUI.Rectangle(); rect.width = "200px"; rect.height = "40px"; rect.thickness = 0;
                 advancedTexture.addControl(rect); rect.linkWithMesh(anchor); rect.linkOffsetY = -50;
-                const txt = new BABYLON.GUI.TextBlock(); txt.fontFamily = "Jost"; txt.text = msg; txt.color = color; txt.fontWeight = "bold"; txt.fontSize = 24; rect.addControl(txt);
+                const txt = new BABYLON.GUI.TextBlock(); txt.text = msg; txt.color = color; txt.fontWeight = "bold"; txt.fontSize = 24; rect.addControl(txt);
                 let f=0;
                 const obs = scene.onBeforeRenderObservable.add(()=>{ if(isPaused) return; f++; anchor.position.y += 0.05; rect.alpha -= 0.02; if(f>50) { rect.dispose(); anchor.dispose(); scene.onBeforeRenderObservable.remove(obs); } });
             };
@@ -357,13 +354,7 @@
             };
 
             const advanceWave = () => {
-                if (currentWave >= maxWaves) {
-                    isPaused = true; 
-                    const winTxt = new BABYLON.GUI.TextBlock(); 
-                    winTxt.text="MISSION COMPLETE"; winTxt.fontFamily="Jost"; winTxt.fontSize=80; winTxt.color="green"; 
-                    advancedTexture.addControl(winTxt); 
-                    return;
-                }
+                if (currentWave >= maxWaves) return;
                 currentWave++; enemiesKilledInWave = 0; enemiesRequiredForWave += 10;
                 currentSpawnRate = currentSpawnRate * 0.9; currentEnemyDamage = currentEnemyDamage * 1.05;
                 waveTitle.text = "WAVE " + currentWave;
@@ -376,18 +367,18 @@
                 createFloatingText(e.position, dmg, "#FF1493");
                 spawnGore(e.position);
                 
-                // WHITE FLASH
+                // FLASH BLANCO
                 if(e.material) {
                     if(!e.metadata.originalEmissive) e.metadata.originalEmissive = e.material.emissiveColor.clone();
                     e.material.emissiveColor = new BABYLON.Color3(1, 1, 1);
                 }
-                setTimeout(() => { if(e && !e.isDisposed() && e.material && e.metadata && e.metadata.originalEmissive) e.material.emissiveColor = e.metadata.originalEmissive; }, 50);
+                setTimeout(() => { if(e && e.material && e.metadata.originalEmissive) e.material.emissiveColor = e.metadata.originalEmissive; }, 50);
 
                 if(e.metadata.hp <= 0) { 
                     spawnLoot(e.position); spawnDeathExplosion(e.position);
                     enemiesKilledInWave++; updateHUD(); 
                     if(enemiesKilledInWave >= enemiesRequiredForWave) advanceWave();
-                    shadowGenerator.removeShadowCaster(e); e.dispose(false, true); const idx = enemies.indexOf(e); if(idx !== -1) enemies.splice(idx, 1); 
+                    e.dispose(); const idx = enemies.indexOf(e); if(idx !== -1) enemies.splice(idx, 1); 
                 }
             };
 
@@ -396,7 +387,7 @@
                 playerHealth -= reducedDmg;
                 if(damageAlpha < 0.1) damageAlpha = 0.3; damageDiv.style.opacity = damageAlpha;
                 updateHUD();
-                if(playerHealth <= 0) { isPaused = true; const go = new BABYLON.GUI.TextBlock(); go.fontFamily = "Jost"; go.text="MISSION FAILED"; go.fontSize=80; go.color="red"; advancedTexture.addControl(go); }
+                if(playerHealth <= 0) { isPaused = true; const go = new BABYLON.GUI.TextBlock(); go.text="MISSION FAILED"; go.fontSize=80; go.color="red"; advancedTexture.addControl(go); }
             };
 
             // --- WEAPONS ---
@@ -420,7 +411,6 @@
             const plasmaMat = new BABYLON.StandardMaterial("plasmaMat", scene); plasmaMat.emissiveColor = new BABYLON.Color3(0, 1, 1); plasmaMat.disableLighting = true;
             const flameMat = new BABYLON.StandardMaterial("flameMat", scene); flameMat.emissiveColor = new BABYLON.Color3(1, 0.3, 0); flameMat.disableLighting = true;
             const laserMat = new BABYLON.StandardMaterial("laserMat", scene); laserMat.emissiveColor = new BABYLON.Color3(1, 0, 0); laserMat.disableLighting = true;
-            const missileMat = new BABYLON.StandardMaterial("missileMat", scene); missileMat.emissiveColor = new BABYLON.Color3(1, 0, 0); missileMat.disableLighting = true;
 
             const getSpawnPos = () => { const p = player.position.clone().add(player.forward.scale(0.8)).add(player.right.scale(0.5)); p.y = 0.6; return p; };
 
@@ -473,6 +463,7 @@
                     enemyMesh = BABYLON.MeshBuilder.CreateTube("worm", {path: [new BABYLON.Vector3(0,0,-1), new BABYLON.Vector3(0,0,1)], radius: 0.4, cap: BABYLON.Mesh.CAP_ALL}, scene);
                     enemyMesh.position = pos; enemyMesh.position.y = 0.5; 
                     enemyMesh.material = wormMatBase.clone("wMat"+Date.now()); 
+                    enemyMesh.rotation.y = Math.random() * Math.PI * 2;
                     enemyMesh.metadata = { type: "worm", hp: 30 + (playerLevel * 5), animOffset: Math.random()*100, baseScaleZ: 1 };
                     shadowGenerator.addShadowCaster(enemyMesh);
                 } else {
@@ -524,7 +515,7 @@
                 if(isMouseDown) fireWeapon();
                 let v = new BABYLON.Vector3(0,0,0);
                 if(inputMap["w"]) v.z = 1; if(inputMap["s"]) v.z = -1; if(inputMap["a"]) v.x = -1; if(inputMap["d"]) v.x = 1;
-                if(v.length() > 0) player.position.addInPlace(v.normalize().scale(12*dt));
+                if(v.length() > 0) player.moveWithCollisions(v.normalize().scale(12*dt));
                 camera.target.x = player.position.x; camera.target.z = player.position.z;
 
                 radarDots.forEach(d => d.dispose()); radarDots = []; const radarRange = 40; 
@@ -552,7 +543,7 @@
                             enemies.forEach(e => { const dst = BABYLON.Vector3.Distance(d.position, e.position); if(dst < 20 && dst < minDst) { minDst = dst; nearest = e; } });
                             if(nearest) {
                                 const m = BABYLON.MeshBuilder.CreateBox("misil", {size: 0.3}, scene); m.position = d.position.clone(); m.lookAt(nearest.position);
-                                m.material = missileMat;
+                                m.material = new BABYLON.StandardMaterial("mM", scene); m.material.emissiveColor = new BABYLON.Color3(1,0,0);
                                 projectiles.push({mesh:m, dir: nearest.position.subtract(d.position).normalize(), speed: 40, damage: droneAttackLevel * 20, life: 50});
                             }
                         }
@@ -584,54 +575,14 @@
                     }
                 });
 
-                // --- SPATIAL HASHING & BROAD PHASE ---
-                const CELL_SIZE = 5;
-                const getCell = (x, z) => `${Math.floor(x / CELL_SIZE)},${Math.floor(z / CELL_SIZE)}`;
-                const spatialGrid = new Map();
-                for(let i=0; i<enemies.length; i++) {
-                    const e = enemies[i];
-                    const cell = getCell(e.position.x, e.position.z);
-                    if(!spatialGrid.has(cell)) spatialGrid.set(cell, []);
-                    spatialGrid.get(cell).push(e);
-                }
-
                 for(let i=projectiles.length-1; i>=0; i--){
                     let p = projectiles[i]; let mesh = p.mesh || p; if(p.mesh) mesh = p.mesh;
                     mesh.position.addInPlace((p.dir || p.metadata.dir).scale((p.speed || p.metadata.speed) * dt));
                     if(p.life) p.life--; else p.metadata.life--;
                     let hit = false;
-
-                    let pRadius = 0.5;
-                    if(mesh.name === "b" || mesh.name === "f" || mesh.name === "misil") pRadius = 0.3;
-                    else if(mesh.name === "p") pRadius = 0.4;
-                    
-                    const pCellX = Math.floor(mesh.position.x / CELL_SIZE);
-                    const pCellZ = Math.floor(mesh.position.z / CELL_SIZE);
-                    
-                    for(let dx=-1; dx<=1; dx++) {
-                        for(let dz=-1; dz<=1; dz++) {
-                            const key = `${pCellX + dx},${pCellZ + dz}`;
-                            if(spatialGrid.has(key)) {
-                                const localEnemies = spatialGrid.get(key);
-                                for(let j=0; j<localEnemies.length; j++) {
-                                    const e = localEnemies[j];
-                                    if(e.isDisposed() || !e.metadata) continue;
-                                    const eRadius = e.metadata.type === "worm" ? 0.5 : 0.8;
-                                    const dxD = mesh.position.x - e.position.x;
-                                    const dzD = mesh.position.z - e.position.z;
-                                    const radiusSum = pRadius + eRadius;
-                                    if(dxD*dxD + dzD*dzD < radiusSum*radiusSum) {
-                                        applyDamage(e, p.damage || p.metadata.damage); 
-                                        hit = true; 
-                                        break;
-                                    }
-                                }
-                            }
-                            if(hit) break;
-                        }
-                        if(hit) break;
+                    for(let j=0; j<enemies.length; j++) {
+                        if(mesh.intersectsMesh(enemies[j], true)) { applyDamage(enemies[j], p.damage || p.metadata.damage); hit = true; break; }
                     }
-
                     if(hit || (p.life !== undefined ? p.life <= 0 : p.metadata.life <= 0)) { mesh.dispose(); projectiles.splice(i,1); }
                 }
             });
