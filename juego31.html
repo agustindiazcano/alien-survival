@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
     <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
     
@@ -185,7 +186,7 @@
             advancedTexture.addControl(hudPanel);
 
             const createBar = (label, color) => {
-                const txt = new BABYLON.GUI.TextBlock(); txt.text = label; txt.color = "white"; txt.fontSize = 14; txt.height = "20px"; txt.textHorizontalAlignment = 0;
+                const txt = new BABYLON.GUI.TextBlock(); txt.fontFamily = "Quicksand"; txt.text = label; txt.color = "white"; txt.fontSize = 14; txt.height = "20px"; txt.textHorizontalAlignment = 0;
                 hudPanel.addControl(txt);
                 const cont = new BABYLON.GUI.Rectangle(); cont.width = "200px"; cont.height = "10px"; cont.color = "white"; cont.background = "black"; cont.horizontalAlignment = 0;
                 hudPanel.addControl(cont);
@@ -196,17 +197,17 @@
             const hpUI = createBar("HEALTH", "green");
             const armorUI = createBar("ARMOR: 0%", "gray");
             const xpUI = createBar("XP (Level 1)", "cyan");
-            const goldText = new BABYLON.GUI.TextBlock();
+            const goldText = new BABYLON.GUI.TextBlock(); goldText.fontFamily = "Quicksand";
             goldText.text = "GOLD: 0"; goldText.color = "#FFD700"; goldText.fontSize = 20; goldText.height = "30px"; goldText.textHorizontalAlignment = 0;
             hudPanel.addControl(goldText);
-            const weaponText = new BABYLON.GUI.TextBlock();
+            const weaponText = new BABYLON.GUI.TextBlock(); weaponText.fontFamily = "Quicksand";
             weaponText.text = "RIFLE (1)"; weaponText.color = "white"; weaponText.fontSize = 18; weaponText.height = "30px"; weaponText.textHorizontalAlignment = 0;
             hudPanel.addControl(weaponText);
 
             const wavePanel = new BABYLON.GUI.StackPanel();
             wavePanel.verticalAlignment = 0; wavePanel.horizontalAlignment = 2; wavePanel.top = "10px";
             advancedTexture.addControl(wavePanel);
-            const waveTitle = new BABYLON.GUI.TextBlock();
+            const waveTitle = new BABYLON.GUI.TextBlock(); waveTitle.fontFamily = "Quicksand";
             waveTitle.text = "WAVE 1"; waveTitle.color = "orange"; waveTitle.fontSize = 30; waveTitle.fontWeight = "bold"; waveTitle.height = "40px";
             wavePanel.addControl(waveTitle);
             const waveProgressContainer = new BABYLON.GUI.Rectangle();
@@ -215,7 +216,7 @@
             const waveProgressBar = new BABYLON.GUI.Rectangle();
             waveProgressBar.width = "0px"; waveProgressBar.height = "20px"; waveProgressBar.background = "#00BFFF"; waveProgressBar.horizontalAlignment = 0;
             waveProgressContainer.addControl(waveProgressBar);
-            const waveProgressText = new BABYLON.GUI.TextBlock();
+            const waveProgressText = new BABYLON.GUI.TextBlock(); waveProgressText.fontFamily = "Quicksand";
             waveProgressText.text = "0%"; waveProgressText.color = "white"; waveProgressText.fontSize = 14;
             waveProgressContainer.addControl(waveProgressText);
 
@@ -250,16 +251,16 @@
             const shopContainer = new BABYLON.GUI.Rectangle();
             shopContainer.width = "700px"; shopContainer.height = "600px"; shopContainer.background = "#0f0f15"; shopContainer.color = "cyan"; shopContainer.thickness = 2; shopContainer.isVisible = false;
             advancedTexture.addControl(shopContainer);
-            const shopHeader = new BABYLON.GUI.TextBlock(); shopHeader.text = "SHOP - PAUSED"; shopHeader.color = "cyan"; shopHeader.fontSize = 24; shopHeader.top = "-260px"; shopContainer.addControl(shopHeader);
-            const statsText = new BABYLON.GUI.TextBlock(); statsText.text = ""; statsText.color = "white"; statsText.fontSize = 16; statsText.top = "-220px"; shopContainer.addControl(statsText);
+            const shopHeader = new BABYLON.GUI.TextBlock(); shopHeader.fontFamily = "Quicksand"; shopHeader.text = "SHOP - PAUSED"; shopHeader.color = "cyan"; shopHeader.fontSize = 24; shopHeader.top = "-260px"; shopContainer.addControl(shopHeader);
+            const statsText = new BABYLON.GUI.TextBlock(); statsText.fontFamily = "Quicksand"; statsText.text = ""; statsText.color = "white"; statsText.fontSize = 16; statsText.top = "-220px"; shopContainer.addControl(statsText);
 
-            const btnNextWave = BABYLON.GUI.Button.CreateSimpleButton("btnNext", "START NEXT WAVE");
+            const btnNextWave = BABYLON.GUI.Button.CreateSimpleButton("btnNext", "START NEXT WAVE"); btnNextWave.fontFamily = "Quicksand";
             btnNextWave.width = "400px"; btnNextWave.height = "60px"; btnNextWave.color = "white"; btnNextWave.background = "green"; btnNextWave.top = "250px";
             btnNextWave.onPointerUpObservable.add(() => { isPaused = false; shopContainer.isVisible = false; canvas.style.cursor = "crosshair"; updateHUD(); });
             shopContainer.addControl(btnNextWave);
 
             const createShopBtn = (text, price, action, top, left, checkBuy) => {
-                const btn = BABYLON.GUI.Button.CreateSimpleButton("btn", text + "\nCost: " + price);
+                const btn = BABYLON.GUI.Button.CreateSimpleButton("btn", text + "\nCost: " + price); btn.fontFamily = "Quicksand";
                 btn.width = "200px"; btn.height = "60px"; btn.color = "white"; btn.background = "#222"; btn.top = top; btn.left = left; btn.fontSize = 14;
                 btn.onPointerUpObservable.add(() => { if(gold >= price) { if(checkBuy && checkBuy()) return; gold -= price; action(); updateShopUI(); updateHUD(); } });
                 shopContainer.addControl(btn);
@@ -317,7 +318,7 @@
                 const anchor = new BABYLON.TransformNode("a", scene); anchor.position = pos.clone(); anchor.position.y += 2;
                 const rect = new BABYLON.GUI.Rectangle(); rect.width = "200px"; rect.height = "40px"; rect.thickness = 0;
                 advancedTexture.addControl(rect); rect.linkWithMesh(anchor); rect.linkOffsetY = -50;
-                const txt = new BABYLON.GUI.TextBlock(); txt.text = msg; txt.color = color; txt.fontWeight = "bold"; txt.fontSize = 24; rect.addControl(txt);
+                const txt = new BABYLON.GUI.TextBlock(); txt.fontFamily = "Quicksand"; txt.text = msg; txt.color = color; txt.fontWeight = "bold"; txt.fontSize = 24; rect.addControl(txt);
                 let f=0;
                 const obs = scene.onBeforeRenderObservable.add(()=>{ if(isPaused) return; f++; anchor.position.y += 0.05; rect.alpha -= 0.02; if(f>50) { rect.dispose(); anchor.dispose(); scene.onBeforeRenderObservable.remove(obs); } });
             };
@@ -390,7 +391,7 @@
                 playerHealth -= reducedDmg;
                 if(damageAlpha < 0.1) damageAlpha = 0.3; damageDiv.style.opacity = damageAlpha;
                 updateHUD();
-                if(playerHealth <= 0) { isPaused = true; const go = new BABYLON.GUI.TextBlock(); go.text="MISSION FAILED"; go.fontSize=80; go.color="red"; advancedTexture.addControl(go); }
+                if(playerHealth <= 0) { isPaused = true; const go = new BABYLON.GUI.TextBlock(); go.fontFamily = "Quicksand"; go.text="MISSION FAILED"; go.fontSize=80; go.color="red"; advancedTexture.addControl(go); }
             };
 
             // --- WEAPONS ---
