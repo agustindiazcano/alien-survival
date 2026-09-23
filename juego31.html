@@ -584,14 +584,53 @@
                     }
                 });
 
+                // --- SPATIAL HASHING & BROAD PHASE ---
+                const CELL_SIZE = 5;
+                const getCell = (x, z) => `${Math.floor(x / CELL_SIZE)},${Math.floor(z / CELL_SIZE)}`;
+                const spatialGrid = new Map();
+                for(let i=0; i<enemies.length; i++) {
+                    const e = enemies[i];
+                    const cell = getCell(e.position.x, e.position.z);
+                    if(!spatialGrid.has(cell)) spatialGrid.set(cell, []);
+                    spatialGrid.get(cell).push(e);
+                }
+
                 for(let i=projectiles.length-1; i>=0; i--){
                     let p = projectiles[i]; let mesh = p.mesh || p; if(p.mesh) mesh = p.mesh;
                     mesh.position.addInPlace((p.dir || p.metadata.dir).scale((p.speed || p.metadata.speed) * dt));
                     if(p.life) p.life--; else p.metadata.life--;
                     let hit = false;
-                    for(let j=0; j<enemies.length; j++) {
-                        if(mesh.intersectsMesh(enemies[j], true)) { applyDamage(enemies[j], p.damage || p.metadata.damage); hit = true; break; }
+
+                    let pRadius = 0.5;
+                    if(mesh.name === "b" || mesh.name === "f" || mesh.name === "misil") pRadius = 0.3;
+                    else if(mesh.name === "p") pRadius = 0.4;
+                    
+                    const pCellX = Math.floor(mesh.position.x / CELL_SIZE);
+                    const pCellZ = Math.floor(mesh.position.z / CELL_SIZE);
+                    
+                    for(let dx=-1; dx<=1; dx++) {
+                        for(let dz=-1; dz<=1; dz++) {
+                            const key = `${pCellX + dx},${pCellZ + dz}`;
+                            if(spatialGrid.has(key)) {
+                                const localEnemies = spatialGrid.get(key);
+                                for(let j=0; j<localEnemies.length; j++) {
+                                    const e = localEnemies[j];
+                                    const eRadius = e.metadata.type === "worm" ? 0.5 : 0.8;
+                                    const dxD = mesh.position.x - e.position.x;
+                                    const dzD = mesh.position.z - e.position.z;
+                                    const radiusSum = pRadius + eRadius;
+                                    if(dxD*dxD + dzD*dzD < radiusSum*radiusSum) {
+                                        applyDamage(e, p.damage || p.metadata.damage); 
+                                        hit = true; 
+                                        break;
+                                    }
+                                }
+                            }
+                            if(hit) break;
+                        }
+                        if(hit) break;
                     }
+
                     if(hit || (p.life !== undefined ? p.life <= 0 : p.metadata.life <= 0)) { mesh.dispose(); projectiles.splice(i,1); }
                 }
             });
