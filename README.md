@@ -23,3 +23,10 @@ The game is an **action wave-based survival** where the player must survive cons
 *   HTML5 / CSS3 / JavaScript
 *   [Babylon.js](https://www.babylonjs.com/) for 3D rendering and physics.
 *   Babylon GUI for the user interface (HUD, health bars, radar, shop).
+
+---
+
+## Autor
+
+Agustin Diaz- Cano
+MS Candidate, Systems Engineering (UTN)
